@@ -6,14 +6,17 @@ import android.content.Intent
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
+import com.example.sms2line.data.repository.EmailQueueRepository
 import com.example.sms2line.email.EmailResult
 import com.example.sms2line.email.SmtpEmailClient
 import com.example.sms2line.storage.ForwardedSmsTracker
 import com.example.sms2line.storage.PreferencesManager
 import com.example.sms2line.storage.SmtpCredentialStorage
 import com.example.sms2line.util.MessageFormatter
+import com.example.sms2line.util.NetworkMonitor
 import com.example.sms2line.util.NotificationHelper
 import com.example.sms2line.util.SmsParser
+import com.example.sms2line.worker.EmailQueueManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,6 +33,8 @@ class SmsForwarderService : Service() {
     private lateinit var smsTracker: ForwardedSmsTracker
     private lateinit var emailClient: SmtpEmailClient
     private lateinit var wakeLock: PowerManager.WakeLock
+    private lateinit var emailQueueRepository: EmailQueueRepository
+    private lateinit var networkMonitor: NetworkMonitor
 
     override fun onCreate() {
         super.onCreate()
@@ -38,6 +43,11 @@ class SmsForwarderService : Service() {
         preferencesManager = PreferencesManager(this)
         smsTracker = ForwardedSmsTracker(this)
         emailClient = SmtpEmailClient()
+        emailQueueRepository = EmailQueueRepository(this)
+        networkMonitor = NetworkMonitor(this)
+
+        // Start monitoring network for connectivity changes
+        networkMonitor.startMonitoring()
 
         // Acquire wake lock to keep CPU running
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -56,8 +66,13 @@ class SmsForwarderService : Service() {
 
         when (intent?.action) {
             ACTION_FORWARD_SMS -> handleSmsForwarding(intent)
-            ACTION_START_SERVICE -> Log.d(TAG, "Service started")
+            ACTION_START_SERVICE -> {
+                Log.d(TAG, "Service started")
+                // Trigger retry of any pending emails
+                EmailQueueManager.scheduleImmediateRetry(this)
+            }
             ACTION_STOP_SERVICE -> {
+                networkMonitor.stopMonitoring()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
@@ -84,39 +99,82 @@ class SmsForwarderService : Service() {
         val forwardingConfig = preferencesManager.getForwardingConfig("")
 
         for (sms in messages) {
-            // Check if already forwarded
+            // Check if already forwarded using the tracker
             if (smsTracker.isAlreadyForwarded(sms)) {
                 Log.d(TAG, "SMS already forwarded, skipping: ${sms.sender}")
                 continue
             }
 
-            // Mark as forwarded immediately to prevent duplicates
-            smsTracker.markAsForwarded(sms)
-
             serviceScope.launch {
+                // Check if already in the queue
+                if (emailQueueRepository.isAlreadyQueued(sms)) {
+                    Log.d(TAG, "SMS already queued, skipping: ${sms.sender}")
+                    return@launch
+                }
+
                 val subject = MessageFormatter.formatSubject(sms)
                 val body = MessageFormatter.formatEmailBody(sms, forwardingConfig)
 
+                // Queue the email first (for reliability)
+                val queued = emailQueueRepository.queueEmail(sms, subject, body)
+                if (!queued) {
+                    Log.d(TAG, "SMS already queued (race condition), skipping: ${sms.sender}")
+                    return@launch
+                }
+
                 Log.d(TAG, "Forwarding SMS from ${sms.sender} via email")
 
+                // Check if we have network connectivity
+                if (!networkMonitor.isNetworkAvailable()) {
+                    Log.d(TAG, "No network available, SMS queued for later delivery")
+                    notificationHelper.showQueuedNotification(sms.sender)
+                    EmailQueueManager.scheduleRetry(this@SmsForwarderService)
+                    return@launch
+                }
+
+                // Try to send immediately
                 when (val result = emailClient.sendEmail(emailConfig, subject, body)) {
                     is EmailResult.Success -> {
                         Log.d(TAG, "SMS forwarded successfully via email")
+                        // Mark as forwarded ONLY after successful send
+                        smsTracker.markAsForwarded(sms)
+                        // Find and mark the queued email as sent
+                        val queuedEmail = emailQueueRepository.getById(
+                            computeSmsHash(sms)
+                        )
+                        queuedEmail?.let { emailQueueRepository.markAsSent(it.id) }
                         notificationHelper.showForwardSuccessNotification(sms.sender)
                     }
                     is EmailResult.Error -> {
                         Log.e(TAG, "Failed to forward SMS: ${result.message}")
-                        notificationHelper.showForwardErrorNotification(result.message)
+                        // Email stays in queue for retry, mark as failed
+                        val queuedEmail = emailQueueRepository.getById(
+                            computeSmsHash(sms)
+                        )
+                        queuedEmail?.let {
+                            emailQueueRepository.markAsFailed(it.id, result.message)
+                        }
+                        notificationHelper.showQueuedNotification(sms.sender)
+                        // Schedule retry with WorkManager
+                        EmailQueueManager.scheduleRetry(this@SmsForwarderService)
                     }
                 }
             }
         }
     }
 
+    private fun computeSmsHash(sms: com.example.sms2line.model.SmsMessage): String {
+        val data = "${sms.sender}|${sms.timestamp}|${sms.body}"
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        val hash = digest.digest(data.toByteArray())
+        return hash.take(16).joinToString("") { "%02x".format(it) }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
         super.onDestroy()
+        networkMonitor.stopMonitoring()
         serviceScope.cancel()
         if (wakeLock.isHeld) {
             wakeLock.release()

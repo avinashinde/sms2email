@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -66,6 +67,14 @@ dependencies {
 
     // ViewModel
     implementation(libs.lifecycle.viewmodel)
+
+    // Room database
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
+
+    // WorkManager
+    implementation(libs.work.runtime.ktx)
 
     // Unit tests
     testImplementation(libs.junit)

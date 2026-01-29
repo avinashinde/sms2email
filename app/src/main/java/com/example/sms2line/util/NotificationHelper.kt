@@ -80,11 +80,51 @@ class NotificationHelper(private val context: Context) {
         notificationManager.notify(NOTIFICATION_ID_ERROR, notification)
     }
 
+    fun showQueuedNotification(sender: String) {
+        val notification = NotificationCompat.Builder(context, CHANNEL_STATUS)
+            .setContentTitle("SMS Queued")
+            .setContentText("Message from $sender will be sent when online")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setAutoCancel(true)
+            .build()
+
+        notificationManager.notify(NOTIFICATION_ID_QUEUED, notification)
+    }
+
+    fun showQueueStatusNotification(pendingCount: Int, failedCount: Int) {
+        if (pendingCount == 0 && failedCount == 0) {
+            notificationManager.cancel(NOTIFICATION_ID_QUEUE_STATUS)
+            return
+        }
+
+        val text = buildString {
+            if (pendingCount > 0) {
+                append("$pendingCount pending")
+            }
+            if (failedCount > 0) {
+                if (pendingCount > 0) append(", ")
+                append("$failedCount failed")
+            }
+        }
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_STATUS)
+            .setContentTitle("Email Queue")
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setAutoCancel(true)
+            .setOngoing(pendingCount > 0)
+            .build()
+
+        notificationManager.notify(NOTIFICATION_ID_QUEUE_STATUS, notification)
+    }
+
     companion object {
         const val CHANNEL_SERVICE = "sms2line_service"
         const val CHANNEL_STATUS = "sms2line_status"
         const val NOTIFICATION_ID_SERVICE = 1
         const val NOTIFICATION_ID_STATUS = 2
         const val NOTIFICATION_ID_ERROR = 3
+        const val NOTIFICATION_ID_QUEUED = 4
+        const val NOTIFICATION_ID_QUEUE_STATUS = 5
     }
 }

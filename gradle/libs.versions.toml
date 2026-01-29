@@ -1,6 +1,7 @@
 [versions]
 agp = "8.12.3"
 kotlin = "2.0.21"
+ksp = "2.0.21-1.0.27"
 coreKtx = "1.10.1"
 junit = "4.13.2"
 junitVersion = "1.1.5"
@@ -13,6 +14,8 @@ lifecycleViewmodel = "2.7.0"
 mockk = "1.13.10"
 constraintlayout = "2.1.4"
 androidMail = "1.6.7"
+room = "2.6.1"
+workManager = "2.9.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -30,8 +33,13 @@ mockk-android = { group = "io.mockk", name = "mockk-android", version.ref = "moc
 constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 android-mail = { group = "com.sun.mail", name = "android-mail", version.ref = "androidMail" }
 android-activation = { group = "com.sun.mail", name = "android-activation", version.ref = "androidMail" }
+room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 

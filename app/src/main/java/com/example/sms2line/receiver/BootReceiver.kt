@@ -7,6 +7,7 @@ import android.util.Log
 import com.example.sms2line.service.SmsForwarderService
 import com.example.sms2line.storage.PreferencesManager
 import com.example.sms2line.storage.SmtpCredentialStorage
+import com.example.sms2line.worker.EmailQueueManager
 
 class BootReceiver : BroadcastReceiver() {
 
@@ -33,6 +34,10 @@ class BootReceiver : BroadcastReceiver() {
                 action = SmsForwarderService.ACTION_START_SERVICE
             }
             context.startForegroundService(serviceIntent)
+
+            // Trigger immediate retry of any pending emails from the queue
+            Log.d(TAG, "Scheduling email queue retry after boot")
+            EmailQueueManager.scheduleImmediateRetry(context)
         }
     }
 
