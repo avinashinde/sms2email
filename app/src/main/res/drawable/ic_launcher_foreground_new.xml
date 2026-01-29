@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Blue half (left) -->
+    <path
+        android:fillColor="#2196F3"
+        android:pathData="M54,18 A36,36 0 0 0 54,90 L54,18 Z" />
+
+    <!-- Green half (right) -->
+    <path
+        android:fillColor="#4CAF50"
+        android:pathData="M54,18 A36,36 0 0 1 54,90 L54,18 Z" />
+
+    <!-- Arrow (on blue side) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M32,58 L32,48 Q32,38 42,38 L48,38 L48,32 L58,42 L48,52 L48,46 L42,46 Q38,46 38,50 L38,58 Z" />
+
+    <!-- Chat bubble (on green side) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M60,42 L78,42 Q82,42 82,46 L82,62 Q82,66 78,66 L72,66 L72,74 L64,66 L60,66 Q56,66 56,62 L56,46 Q56,42 60,42 Z" />
+
+    <!-- Three dots in chat bubble -->
+    <path
+        android:fillColor="#4CAF50"
+        android:pathData="M63,54 A2,2 0 1 1 63,53.99 Z" />
+    <path
+        android:fillColor="#4CAF50"
+        android:pathData="M69,54 A2,2 0 1 1 69,53.99 Z" />
+    <path
+        android:fillColor="#4CAF50"
+        android:pathData="M75,54 A2,2 0 1 1 75,53.99 Z" />
+
+</vector>
